@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trading Chart with Signals</title>
+    <script src="https://unpkg.com/lightweight-charts@4.0.1/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      .header {
+        background: #2c3e50;
+        color: white;
+        padding: 20px 30px;
+        text-align: center;
+      }
+
+      .header h1 {
+        font-size: 28px;
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        opacity: 0.8;
+        font-size: 16px;
+      }
+
+      .controls {
+        background: #34495e;
+        padding: 15px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+      }
+
+      .legend {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: white;
+        font-size: 14px;
+      }
+
+      .legend-color {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+      }
+
+      .stats {
+        display: flex;
+        gap: 20px;
+        color: white;
+        font-size: 14px;
+      }
+
+      .stat-item {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 5px 12px;
+        border-radius: 20px;
+      }
+
+      #chart-container {
+        width: 100%;
+        height: 700px;
+        background: white;
+      }
+
+      .data-section {
+        padding: 20px 30px;
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+      }
+
+      .upload-area {
+        background: white;
+        border: 2px dashed #dee2e6;
+        border-radius: 10px;
+        padding: 30px;
+        text-align: center;
+        margin-bottom: 20px;
+      }
+
+      .upload-area h3 {
+        color: #495057;
+        margin-bottom: 15px;
+      }
+
+      .file-inputs {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+      }
+
+      .file-input {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .file-input label {
+        font-weight: 600;
+        color: #495057;
+      }
+
+      button {
+        background: #3498db;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+
+      button:hover {
+        background: #2980b9;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      .loading {
+        display: none;
+        text-align: center;
+        padding: 20px;
+        color: #6c757d;
+      }
+
+      .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 2s linear infinite;
+        margin: 0 auto 15px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .error {
+        background: #e74c3c;
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 15px 0;
+        display: none;
+      }
+
+      .success {
+        background: #27ae60;
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 15px 0;
+        display: none;
+      }
+
+      @media (max-width: 768px) {
+        .controls {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        #chart-container {
+          height: 500px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>📈 Trading Chart with Signals</h1>
+        <p>Visualize your entry, stop loss, and take profit signals</p>
+      </div>
+
+      <div class="controls">
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #00ff00"></div>
+            <span>ENTRY SIGNAL</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #ff0000"></div>
+            <span>STOP LOSS</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #0000ff"></div>
+            <span>TAKE PROFIT</span>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat-item" id="candle-count">Candles: 0</div>
+          <div class="stat-item" id="signal-count">Signals: 0</div>
+          <div class="stat-item" id="date-range">Date: -</div>
+        </div>
+      </div>
+
+      <div id="chart-container"></div>
+
+      <div class="data-section">
+        <div class="upload-area">
+          <h3>Upload Your Trading Data</h3>
+          <div class="file-inputs">
+            <div class="file-input">
+              <label for="ohlcv-file">📊 OHLCV Data (CSV)</label>
+              <input type="file" id="ohlcv-file" accept=".csv" />
+            </div>
+            <div class="file-input">
+              <label for="trades-file">🎯 Trades Data (CSV)</label>
+              <input type="file" id="trades-file" accept=".csv" />
+            </div>
+          </div>
+          <button onclick="processData()">Generate Chart</button>
+        </div>
+
+        <div class="loading" id="loading">
+          <div class="spinner"></div>
+          <p>Processing data and generating chart...</p>
+        </div>
+
+        <div class="error" id="error-message"></div>
+        <div class="success" id="success-message"></div>
+      </div>
+    </div>
+
+    <script>
+      let chart = null;
+      let candleSeries = null;
+      let lineSeries = [];
+
+      // Initialize chart
+      function initChart() {
+        const container = document.getElementById("chart-container");
+
+        chart = LightweightCharts.createChart(container, {
+          width: container.clientWidth,
+          height: 700,
+          layout: {
+            background: { color: "#ffffff" },
+            textColor: "#191919",
+            fontSize: 14,
+          },
+          grid: {
+            vertLines: { color: "#e6e6e6" },
+            horzLines: { color: "#e6e6e6" },
+          },
+          rightPriceScale: {
+            borderColor: "#e6e6e6",
+            scaleMargins: {
+              top: 0.1,
+              bottom: 0.1,
+            },
+          },
+          timeScale: {
+            borderColor: "#e6e6e6",
+            timeVisible: true,
+            secondsVisible: false,
+            barSpacing: 3,
+          },
+          crosshair: {
+            mode: LightweightCharts.CrosshairMode.Normal,
+            vertLine: {
+              width: 1,
+              color: "rgba(0, 0, 0, 0.2)",
+              style: 2,
+            },
+            horzLine: {
+              width: 1,
+              color: "rgba(0, 0, 0, 0.2)",
+              style: 2,
+            },
+          },
+        });
+
+        candleSeries = chart.addCandlestickSeries({
+          upColor: "#26a69a",
+          downColor: "#ef5350",
+          borderUpColor: "#26a69a",
+          borderDownColor: "#ef5350",
+          wickUpColor: "#26a69a",
+          wickDownColor: "#ef5350",
+        });
+      }
+
+      // Process uploaded data
+      async function processData() {
+        const ohlcvFile = document.getElementById("ohlcv-file").files[0];
+        const tradesFile = document.getElementById("trades-file").files[0];
+
+        if (!ohlcvFile || !tradesFile) {
+          showError("Please upload both OHLCV and Trades files");
+          return;
+        }
+
+        showLoading();
+        hideError();
+        hideSuccess();
+
+        try {
+          // Read files
+          const ohlcvText = await readFile(ohlcvFile);
+          const tradesText = await readFile(tradesFile);
+
+          // Parse CSV
+          const ohlcvData = parseCSV(ohlcvText);
+          const tradesData = parseCSV(tradesText);
+
+          // Process data
+          const processedData = processTradingData(ohlcvData, tradesData);
+
+          // Update chart
+          updateChart(processedData.ohlcv, processedData.signals);
+
+          showSuccess(`Chart updated! ${processedData.ohlcv.length} candles, ${processedData.signals.length} signals`);
+        } catch (error) {
+          showError("Error processing data: " + error.message);
+          console.error(error);
+        } finally {
+          hideLoading();
+        }
+      }
+
+      // Read file as text
+      function readFile(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = (e) => reject(e);
+          reader.readAsText(file);
+        });
+      }
+
+      // Parse CSV text to array of objects
+      function parseCSV(csvText) {
+        const lines = csvText.trim().split("\n");
+        const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+
+        return lines.slice(1).map((line) => {
+          const values = line.split(",").map((v) => v.trim());
+          const obj = {};
+          headers.forEach((header, index) => {
+            obj[header] = values[index] || "";
+          });
+          return obj;
+        });
+      }
+
+      // Process trading data
+      function processTradingData(ohlcvData, tradesData) {
+        // Process OHLCV data
+        const ohlcv = ohlcvData
+          .map((row) => {
+            const timestamp = new Date(row.datetime || row.timestamp || row.date).getTime() / 1000;
+            return {
+              time: timestamp,
+              open: parseFloat(row.open || row.o),
+              high: parseFloat(row.high || row.h),
+              low: parseFloat(row.low || row.l),
+              close: parseFloat(row.close || row.c),
+            };
+          })
+          .filter((item) => !isNaN(item.time));
+
+        // Process signals
+        const signals = [];
+        tradesData.forEach((trade) => {
+          const timestamp = new Date(trade.datetime || trade.timestamp || trade.date).getTime() / 1000;
+          const side = (trade.side || "buy").toLowerCase();
+
+          if (trade.entry) {
+            signals.push({
+              time: timestamp,
+              price: parseFloat(trade.entry),
+              type: "entry",
+              side: side,
+              color: "#00FF00",
+              text: `ENTRY ${side.toUpperCase()}`,
+              shape: side === "buy" ? "arrowUp" : "arrowDown",
+            });
+          }
+
+          if (trade.sl) {
+            signals.push({
+              time: timestamp,
+              price: parseFloat(trade.sl),
+              type: "sl",
+              side: side,
+              color: "#FF0000",
+              text: "SL",
+              shape: "arrowDown",
+            });
+          }
+
+          if (trade.tp) {
+            signals.push({
+              time: timestamp,
+              price: parseFloat(trade.tp),
+              type: "tp",
+              side: side,
+              color: "#0000FF",
+              text: "TP",
+              shape: "arrowUp",
+            });
+          }
+        });
+
+        return { ohlcv, signals };
+      }
+
+      // Update chart with new data
+      function updateChart(ohlcvData, signalsData) {
+        // Clear existing data
+        candleSeries.setData(ohlcvData);
+
+        // Clear existing lines
+        lineSeries.forEach((series) => chart.removeSeries(series));
+        lineSeries = [];
+
+        // Add markers for signals
+        const markers = signalsData.map((signal) => ({
+          time: signal.time,
+          position: signal.side === "buy" ? "belowBar" : "aboveBar",
+          color: signal.color,
+          shape: signal.shape,
+          text: signal.text,
+        }));
+
+        candleSeries.setMarkers(markers);
+
+        // Add horizontal lines for SL/TP
+        signalsData.forEach((signal) => {
+          if (signal.type === "sl" || signal.type === "tp") {
+            const line = chart.addLineSeries({
+              color: signal.color,
+              lineWidth: 2,
+              lineStyle: 2, // dashed
+            });
+
+            const lineData = [
+              { time: ohlcvData[0].time, value: signal.price },
+              { time: ohlcvData[ohlcvData.length - 1].time, value: signal.price },
+            ];
+
+            line.setData(lineData);
+            lineSeries.push(line);
+          }
+        });
+
+        // Fit content
+        chart.timeScale().fitContent();
+
+        // Update stats
+        updateStats(ohlcvData, signalsData);
+      }
+
+      // Update statistics
+      function updateStats(ohlcvData, signalsData) {
+        document.getElementById("candle-count").textContent = `Candles: ${ohlcvData.length}`;
+        document.getElementById("signal-count").textContent = `Signals: ${signalsData.length}`;
+
+        if (ohlcvData.length > 0) {
+          const startDate = new Date(ohlcvData[0].time * 1000).toLocaleDateString();
+          const endDate = new Date(ohlcvData[ohlcvData.length - 1].time * 1000).toLocaleDateString();
+          document.getElementById("date-range").textContent = `Date: ${startDate} - ${endDate}`;
+        }
+      }
+
+      // UI helper functions
+      function showLoading() {
+        document.getElementById("loading").style.display = "block";
+      }
+
+      function hideLoading() {
+        document.getElementById("loading").style.display = "none";
+      }
+
+      function showError(message) {
+        const errorEl = document.getElementById("error-message");
+        errorEl.textContent = message;
+        errorEl.style.display = "block";
+      }
+
+      function hideError() {
+        document.getElementById("error-message").style.display = "none";
+      }
+
+      function showSuccess(message) {
+        const successEl = document.getElementById("success-message");
+        successEl.textContent = message;
+        successEl.style.display = "block";
+      }
+
+      function hideSuccess() {
+        document.getElementById("success-message").style.display = "none";
+      }
+
+      // Handle window resize
+      window.addEventListener("resize", () => {
+        if (chart) {
+          chart.applyOptions({
+            width: document.getElementById("chart-container").clientWidth,
+          });
+        }
+      });
+
+      // Initialize chart on load
+      document.addEventListener("DOMContentLoaded", initChart);
+    </script>
+  </body>
+</html>
